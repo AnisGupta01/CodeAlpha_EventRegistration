@@ -296,6 +296,28 @@ function myRegistrations({ db, user, query }) {
   });
 }
 
+function getRegistration({ db, user, params }) {
+  requireUser(user);
+  const id = parseId(params.id, 'registration id');
+  const row = db
+    .prepare(
+      `SELECT r.*, e.title AS event_title, e.location AS event_location, e.event_date AS event_date
+       FROM registrations r JOIN events e ON e.id = r.event_id
+       WHERE r.id = ?`
+    )
+    .get(id);
+  if (!row) throw new HttpError(404, 'Registration not found.');
+  if (row.user_id !== user.id && user.role !== 'organizer') {
+    throw new HttpError(403, 'You can only view your own registrations.');
+  }
+  return ok({
+    registration: {
+      ...shapeRegistration(row),
+      event: { id: row.event_id, title: row.event_title, location: row.event_location, event_date: row.event_date },
+    },
+  });
+}
+
 function cancelRegistration({ db, user, params }) {
   requireUser(user);
   const id = parseId(params.id, 'registration id');
@@ -347,6 +369,7 @@ module.exports = {
   deleteEvent,
   registerForEvent,
   myRegistrations,
+  getRegistration,
   cancelRegistration,
   eventRegistrations,
 };

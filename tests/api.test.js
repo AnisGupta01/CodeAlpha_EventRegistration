@@ -76,6 +76,12 @@ test('HTTP API end-to-end', { skip: !hasExpress && 'express is not installed (ru
   assert.equal(mine.json.registrations.length, 1);
 
   const regId = joined.json.registration.id;
+  const one = await call('GET', `/api/registrations/${regId}`, { token: alice });
+  assert.equal(one.status, 200);
+  assert.equal(one.json.registration.event.title, 'Workshop');
+  assert.equal((await call('GET', `/api/registrations/${regId}`, { token: org })).status, 200);
+  assert.equal((await call('GET', `/api/registrations/${regId}`)).status, 401);
+  assert.equal((await call('GET', '/api/registrations/9999', { token: alice })).status, 404);
   assert.equal((await call('GET', `/api/events/${id}/registrations`, { token: alice })).status, 403);
   assert.equal((await call('GET', `/api/events/${id}/registrations`, { token: org })).json.registrations.length, 1);
 
