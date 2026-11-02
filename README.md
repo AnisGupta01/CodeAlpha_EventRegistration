@@ -4,6 +4,16 @@
 
 REST API built with **Node.js + Express.js** and **SQLite**. Users can sign up, browse events, register for them, view and cancel their registrations. Organizers (admin role) can create, edit and delete events and see the attendee list.
 
+## CodeAlpha task requirements
+
+| Requirement (Task 2) | Where it is covered |
+|----------------------|---------------------|
+| Backend with Express.js to manage routes and logic | `src/app.js` (routes), `src/services.js` (logic) |
+| Models for events and user registrations in a database | SQLite tables `users`, `events`, `registrations` (`src/db.js`) |
+| API endpoints to view event list, event details, submit registration | `GET /api/events`, `GET /api/events/:id`, `POST /api/events/:id/register` |
+| Registrations linked to users and events; users view / cancel them | `registrations.user_id` + `registrations.event_id` foreign keys; `GET /api/registrations`, `GET /api/registrations/:id`, `DELETE /api/registrations/:id` |
+| Optional: admin panel / authentication for organizers | JWT login, `organizer` role that can create / edit / delete events and see attendee lists |
+
 ## Features
 
 - JWT authentication (HS256), passwords hashed with scrypt
@@ -32,7 +42,7 @@ Windows PowerShell:
 $env:JWT_SECRET="change-me-to-a-long-random-string"; npm run seed; npm start
 ```
 
-Server runs on http://localhost:3000.
+Server runs on http://localhost:3000. Open it in a browser to see the list of endpoints, or `GET /health` for a health check.
 
 Default organizer from the seed script: `organizer@example.com` / `Organizer@123`. Set your own with
 `ADMIN_EMAIL` and `ADMIN_PASSWORD` before running `npm run seed`.
@@ -57,7 +67,30 @@ Send the token as `Authorization: Bearer <token>`.
 | GET | `/api/events/:id/registrations` | organizer | Attendee list. Query: `status=registered\|cancelled\|all` |
 | POST | `/api/events/:id/register` | user | Register for an event |
 | GET | `/api/registrations` | user | My registrations. Query: `status=registered\|cancelled\|all` |
+| GET | `/api/registrations/:id` | owner / organizer | One registration with its event |
 | DELETE | `/api/registrations/:id` | owner / organizer | Cancel a registration |
+
+Example responses:
+
+```json
+// POST /api/events/1/register  -> 201
+{ "registration": { "id": 1, "event_id": 1, "user_id": 2, "status": "registered",
+                    "registered_at": "2026-11-02T05:50:00.000Z", "cancelled_at": null } }
+
+// POST /api/events/1/register again -> 409
+{ "error": "You are already registered for this event." }
+```
+
+Organizer example (create an event; `event_date` is ISO 8601):
+
+```bash
+ORG=$(curl -s -X POST localhost:3000/api/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"organizer@example.com","password":"Organizer@123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+
+curl -s -X POST localhost:3000/api/events -H "Authorization: Bearer $ORG" -H "Content-Type: application/json" \
+  -d '{"title":"Node.js Meetup","location":"Lucknow","event_date":"2026-12-01T15:30:00+05:30","capacity":40}'
+curl -s localhost:3000/api/events/1/registrations?status=all -H "Authorization: Bearer $ORG"
+```
 
 ### One-command demo
 
@@ -70,7 +103,7 @@ Starts the app on a temporary in-memory database and walks through the whole flo
 ### Quick demo with curl
 
 ```bash
-# sign up and save the token
+# sign up and save the token (response: {"user": {...}, "token": "..."})
 curl -s -X POST localhost:3000/api/auth/register -H "Content-Type: application/json" \
   -d '{"name":"Anish","email":"anish@example.com","password":"password123"}'
 
@@ -79,6 +112,7 @@ TOKEN=<paste token here>
 curl -s localhost:3000/api/events
 curl -s -X POST localhost:3000/api/events/1/register -H "Authorization: Bearer $TOKEN"
 curl -s localhost:3000/api/registrations -H "Authorization: Bearer $TOKEN"
+curl -s localhost:3000/api/registrations/1 -H "Authorization: Bearer $TOKEN"
 curl -s -X DELETE localhost:3000/api/registrations/1 -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -97,8 +131,12 @@ registrations  id, user_id -> users, event_id -> events, status, registered_at, 
 npm test
 ```
 
-- `tests/services.test.js`: 17 tests for auth, validation, roles, capacity, cancel / re-register, cascade delete
+- `tests/services.test.js`: 18 tests for auth, validation, roles, capacity, viewing / cancelling / re-registering, cascade delete
 - `tests/api.test.js`: end-to-end HTTP test against the real Express app
+
+All 19 tests pass on Node 22.
+
+Note: Node prints an `ExperimentalWarning` for the built-in `node:sqlite` module; the npm scripts hide it with `--disable-warning=ExperimentalWarning`.
 
 ## Project structure
 

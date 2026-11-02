@@ -283,3 +283,16 @@ test('deleting an event removes its registrations', () => {
   assert.equal(status(() => s.getEvent(t.ctx({ params: { id: ev.id } }))), 404);
   assert.equal(status(() => s.deleteEvent(t.ctx({ user: t.organizer, params: { id: ev.id } }))), 404);
 });
+
+test('view a single registration: owner and organizer only', () => {
+  const t = setup();
+  const ev = makeEvent(t);
+  const reg = s.registerForEvent(t.ctx({ user: t.alice, params: { id: ev.id } })).body.registration;
+  const view = (user, id = reg.id) => s.getRegistration(t.ctx({ user, params: { id } }));
+  assert.equal(view(t.alice).body.registration.event.id, ev.id);
+  assert.equal(view(t.organizer).status, 200);
+  assert.equal(status(() => view(t.bob)), 403);
+  assert.equal(status(() => view(null)), 401);
+  assert.equal(status(() => view(t.alice, 9999)), 404);
+  assert.equal(status(() => view(t.alice, 'abc')), 400);
+});

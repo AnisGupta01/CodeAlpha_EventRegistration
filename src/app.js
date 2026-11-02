@@ -45,6 +45,7 @@ function createApp({ db, secret }) {
         'GET  /api/events/:id/registrations (organizer)',
         'POST /api/events/:id/register',
         'GET  /api/registrations',
+        'GET  /api/registrations/:id',
         'DELETE /api/registrations/:id',
       ],
     });
@@ -67,6 +68,7 @@ function createApp({ db, secret }) {
   // registrations
   app.post('/api/events/:id/register', route(services.registerForEvent));
   app.get('/api/registrations', route(services.myRegistrations));
+  app.get('/api/registrations/:id', route(services.getRegistration));
   app.delete('/api/registrations/:id', route(services.cancelRegistration));
 
   // 404 for anything else
